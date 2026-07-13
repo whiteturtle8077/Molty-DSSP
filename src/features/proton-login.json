@@ -1,0 +1,22 @@
+{
+  "feature": "ProtonMail Login",
+  "description": "As a user, I want to log into ProtonMail so that I can access my email",
+  "scenarios": [
+    {
+      "name": "Login page loads with branding",
+      "given": "I navigate to the ProtonMail login page",
+      "when": "the page finishes loading",
+      "then": "the page title should contain 'Proton'"
+    },
+    {
+      "name": "Login form displays all required fields",
+      "given": "I am on the ProtonMail login page",
+      "when": "the login form is rendered",
+      "then": [
+        "a username input field should be visible",
+        "a password input field should be visible",
+        "a sign-in button should be visible"
+      ]
+    }
+  ]
+}
