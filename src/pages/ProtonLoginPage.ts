@@ -3,7 +3,7 @@ import { BasePage } from './Page.js';
 
 /**
  * ProtonMail login page object.
- * URL: https://mail.proton.me
+ * Base URL is consumed from config (MOLTY_BASE_URL env var or .env file).
  */
 export class ProtonLoginPage extends BasePage {
   // Selectors for the ProtonMail login form
@@ -12,9 +12,10 @@ export class ProtonLoginPage extends BasePage {
   private readonly signInButton = 'button[type="submit"]';
   private readonly titlePattern = /Proton/;
 
-  /** Navigate to ProtonMail login */
+  /** Navigate to ProtonMail login (uses config.app.baseUrl) */
   async open(): Promise<void> {
-    await this.goto('https://mail.proton.me');
+    // Passing empty string so BasePage resolves relative to baseUrl
+    await this.goto('');
   }
 
   /** Verify the login page loaded with correct branding */

@@ -1,15 +1,24 @@
 import { Page as PlaywrightPage } from '@playwright/test';
+import { config } from '../config/index.js';
 
 /**
  * Base page object — all page objects extend this.
  * Provides common navigation and utility methods.
+ * Uses config.app.baseUrl for relative navigation.
  */
 export abstract class BasePage {
   constructor(protected readonly page: PlaywrightPage) {}
 
-  /** Navigate to a relative or absolute URL */
+  /** Navigate to an absolute URL or relative path */
   async goto(url: string): Promise<void> {
-    await this.page.goto(url);
+    // If it's a relative path or just a hostname, resolve against baseUrl
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      const base = config.app.baseUrl.replace(/\/+$/, '');
+      const path = url.startsWith('/') ? url : `/${url}`;
+      await this.page.goto(`${base}${path}`);
+    } else {
+      await this.page.goto(url);
+    }
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -31,5 +40,10 @@ export abstract class BasePage {
   /** Click an element */
   async click(selector: string): Promise<void> {
     await this.page.click(selector);
+  }
+
+  /** Get the config instance (exposed for page objects that need it) */
+  get config() {
+    return config;
   }
 }
