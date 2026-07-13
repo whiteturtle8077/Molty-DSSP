@@ -1,15 +1,28 @@
 /**
  * Config module — single source of truth for all environment and app configuration.
  *
- * Loads from environment variables (prefixed with MOLTY_) with fallback defaults.
- * Secrets (username, passwords, API keys) MUST come from .env or environment,
- * never from code or checked into git.
+ * Auth secrets (username, password) come from .env.enc — an AES-256-GCM encrypted
+ * blob that is decrypted at runtime using MOLTY_MASTER_KEY (injected by the user).
+ *
+ * The master key NEVER touches this machine's disk. It is provided at runtime via
+ * environment variable or piped over SSH:
+ *
+ *   MOLTY_MASTER_KEY=xxxxxxxx npm run test:bdd
+ *
+ * Non-secret config (baseUrl, report settings) can fall back to plaintext env vars.
+ *
+ * Security invariants:
+ *   - .env.enc is the only secrets file on disk — ciphertext only
+ *   - Plaintext secrets exist only in memory during the test run
+ *   - .env.enc CAN be committed to GitHub — it's useless without the master key
+ *     (but .env must NEVER be committed)
  *
  * Usage:
  *   import { config } from './config/index.js';
- *   console.log(config.app.baseUrl);
+ *   console.log(config.auth.protonUsername);
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,19 +30,37 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load .env file manually (avoids dotenv dependency)
+// ---- File locators ----
+function findProjectRoot(): string {
+  // Start from src/config/ and walk up to find the directory with package.json
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+    const parent = path.resolve(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fallback to cwd
+  return process.cwd();
+}
+
+function findFile(...names: string[]): string | null {
+  const root = findProjectRoot();
+  for (const name of names) {
+    // Check project root first
+    const p1 = path.join(root, name);
+    if (fs.existsSync(p1)) return p1;
+    // Check cwd
+    const p2 = path.join(process.cwd(), name);
+    if (p2 !== p1 && fs.existsSync(p2)) return p2;
+  }
+  return null;
+}
+
+// ---- .env loader (non-secret config) ----
 function loadEnvFile(): void {
-  // Walk up from src/config/ to project root
-  let envPath = path.resolve(__dirname, '..', '..', '.env');
-
-  // If not found, also check cwd (in case run from output/ root)
-  if (!fs.existsSync(envPath)) {
-    envPath = path.resolve(process.cwd(), '.env');
-  }
-
-  if (!fs.existsSync(envPath)) {
-    return; // No .env file — rely on actual env vars
-  }
+  const envPath = findFile('.env');
+  if (!envPath) return;
 
   const content = fs.readFileSync(envPath, 'utf-8');
   for (const line of content.split('\n')) {
@@ -39,14 +70,62 @@ function loadEnvFile(): void {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     const value = trimmed.slice(eqIdx + 1).trim();
-    // Only set if not already present (actual env vars take priority)
     if (!process.env[key]) {
       process.env[key] = value;
     }
   }
 }
 
-// Load .env on module import
+// ---- .env.enc decrypter (secrets, AES-256-GCM) ----
+interface SecretsPayload {
+  username: string;
+  password: string;
+}
+
+function decryptSecrets(): SecretsPayload {
+  const masterKeyHex = process.env['MOLTY_MASTER_KEY'] || '';
+  if (!masterKeyHex) {
+    // No master key provided — return empty (login tests will fail gracefully)
+    return { username: '', password: '' };
+  }
+
+  const encPath = findFile('.env.enc');
+  if (!encPath) {
+    return { username: '', password: '' };
+  }
+
+  try {
+    // Read ciphertext (base64 encoded single line)
+    const ciphertextB64 = fs.readFileSync(encPath, 'utf-8').trim();
+    const combined = Buffer.from(ciphertextB64, 'base64');
+
+    // Packed format: nonce (12) + tag (16) + ciphertext (rest)
+    const nonce = combined.subarray(0, 12);
+    const tag = combined.subarray(12, 28);
+    const ciphertext = combined.subarray(28);
+
+    const key = Buffer.from(masterKeyHex, 'hex');
+    if (key.length !== 32) {
+      throw new Error(`Master key must be 64 hex chars (32 bytes), got ${key.length * 2} hex chars`);
+    }
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, nonce);
+    decipher.setAuthTag(tag);
+
+    const decrypted = Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]);
+
+    return JSON.parse(decrypted.toString('utf-8')) as SecretsPayload;
+  } catch (err) {
+    console.error('❌ Failed to decrypt .env.enc — wrong master key or corrupted file');
+    console.error(`   ${(err as Error).message}`);
+    return { username: '', password: '' };
+  }
+}
+
+// ---- Load on module init ----
 loadEnvFile();
 
 export interface AppConfig {
@@ -73,13 +152,17 @@ function getEnv(name: string, defaultValue: string = ''): string {
   return process.env[name] || process.env[name.toLowerCase()] || defaultValue;
 }
 
+// Decrypt secrets at module load time — in-memory only, never hits disk
+const secrets = decryptSecrets();
+
 export const config: Config = {
   app: {
     baseUrl: getEnv('MOLTY_BASE_URL', 'https://mail.proton.me'),
   },
   auth: {
-    protonUsername: getEnv('MOLTY_PROTON_USERNAME', ''),
-    protonPassword: getEnv('MOLTY_PROTON_PASSWORD', ''),
+    // Try env vars first (direct injection), fall back to .env.enc decryption
+    protonUsername: getEnv('MOLTY_PROTON_USERNAME', secrets.username),
+    protonPassword: getEnv('MOLTY_PROTON_PASSWORD', secrets.password),
   },
   report: {
     outputDir: getEnv('MOLTY_REPORT_DIR', 'test-results'),
