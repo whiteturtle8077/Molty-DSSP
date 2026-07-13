@@ -4,22 +4,23 @@ import { config } from '../config/index.js';
 /**
  * Base page object — all page objects extend this.
  * Provides common navigation and utility methods.
- * Uses config.app.baseUrl for relative navigation.
+ *
+ * Navigation uses 'load' event (not 'networkidle') because SPAs like ProtonMail
+ * maintain persistent connections that prevent networkidle from ever firing.
  */
 export abstract class BasePage {
   constructor(protected readonly page: PlaywrightPage) {}
 
   /** Navigate to an absolute URL or relative path */
   async goto(url: string): Promise<void> {
-    // If it's a relative path or just a hostname, resolve against baseUrl
+    // If it's a relative path or empty (use baseUrl), resolve against config
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       const base = config.app.baseUrl.replace(/\/+$/, '');
       const path = url.startsWith('/') ? url : `/${url}`;
-      await this.page.goto(`${base}${path}`);
+      await this.page.goto(`${base}${path}`, { waitUntil: 'load' });
     } else {
-      await this.page.goto(url);
+      await this.page.goto(url, { waitUntil: 'load' });
     }
-    await this.page.waitForLoadState('networkidle');
   }
 
   /** Get the page title */

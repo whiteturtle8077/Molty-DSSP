@@ -3,13 +3,12 @@
  *
  * Auth secrets (username, password) come from .env.enc — an AES-256-GCM encrypted
  * blob that is decrypted at runtime using MOLTY_MASTER_KEY (injected by the user).
+ * The 2Captcha API key can come from a separate env var or the environment.
  *
  * The master key NEVER touches this machine's disk. It is provided at runtime via
  * environment variable or piped over SSH:
  *
  *   MOLTY_MASTER_KEY=xxxxxxxx npm run test:bdd
- *
- * Non-secret config (baseUrl, report settings) can fall back to plaintext env vars.
  *
  * Security invariants:
  *   - .env.enc is the only secrets file on disk — ciphertext only
@@ -32,7 +31,6 @@ const __dirname = path.dirname(__filename);
 
 // ---- File locators ----
 function findProjectRoot(): string {
-  // Start from src/config/ and walk up to find the directory with package.json
   let dir = __dirname;
   for (let i = 0; i < 5; i++) {
     if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
@@ -40,17 +38,14 @@ function findProjectRoot(): string {
     if (parent === dir) break;
     dir = parent;
   }
-  // Fallback to cwd
   return process.cwd();
 }
 
 function findFile(...names: string[]): string | null {
   const root = findProjectRoot();
   for (const name of names) {
-    // Check project root first
     const p1 = path.join(root, name);
     if (fs.existsSync(p1)) return p1;
-    // Check cwd
     const p2 = path.join(process.cwd(), name);
     if (p2 !== p1 && fs.existsSync(p2)) return p2;
   }
@@ -85,7 +80,6 @@ interface SecretsPayload {
 function decryptSecrets(): SecretsPayload {
   const masterKeyHex = process.env['MOLTY_MASTER_KEY'] || '';
   if (!masterKeyHex) {
-    // No master key provided — return empty (login tests will fail gracefully)
     return { username: '', password: '' };
   }
 
@@ -95,11 +89,9 @@ function decryptSecrets(): SecretsPayload {
   }
 
   try {
-    // Read ciphertext (base64 encoded single line)
     const ciphertextB64 = fs.readFileSync(encPath, 'utf-8').trim();
     const combined = Buffer.from(ciphertextB64, 'base64');
 
-    // Packed format: nonce (12) + tag (16) + ciphertext (rest)
     const nonce = combined.subarray(0, 12);
     const tag = combined.subarray(12, 28);
     const ciphertext = combined.subarray(28);
@@ -142,17 +134,22 @@ export interface ReportConfig {
   format: 'json' | 'junit';
 }
 
+export interface CaptchaConfig {
+  apiKey: string;
+}
+
 export interface Config {
   app: AppConfig;
   auth: AuthConfig;
   report: ReportConfig;
+  captcha: CaptchaConfig;
 }
 
 function getEnv(name: string, defaultValue: string = ''): string {
   return process.env[name] || process.env[name.toLowerCase()] || defaultValue;
 }
 
-// Decrypt secrets at module load time — in-memory only, never hits disk
+// Decrypt secrets at module load time
 const secrets = decryptSecrets();
 
 export const config: Config = {
@@ -160,12 +157,17 @@ export const config: Config = {
     baseUrl: getEnv('MOLTY_BASE_URL', 'https://mail.proton.me'),
   },
   auth: {
-    // Try env vars first (direct injection), fall back to .env.enc decryption
     protonUsername: getEnv('MOLTY_PROTON_USERNAME', secrets.username),
     protonPassword: getEnv('MOLTY_PROTON_PASSWORD', secrets.password),
   },
   report: {
     outputDir: getEnv('MOLTY_REPORT_DIR', 'test-results'),
     format: (getEnv('MOLTY_REPORT_FORMAT', 'json') as 'json' | 'junit'),
+  },
+  captcha: {
+    // Try multiple env var names for 2Captcha key
+    apiKey: getEnv('MOLTY_2CAPTCHA_KEY',
+      getEnv('_2CAPTCHA_API_KEY',
+        getEnv('2CAPTCHA_API_KEY', ''))),
   },
 };
