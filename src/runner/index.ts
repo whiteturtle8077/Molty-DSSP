@@ -17,7 +17,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 // ---- Config ----
-const HEADLESS = process.env['MOLTY_HEADLESS'] !== 'false';
+const HEADLESS = process.env['MOLTY_HEADLESS'] !== 'true';
 
 // ---- Types ----
 interface Scenario {
