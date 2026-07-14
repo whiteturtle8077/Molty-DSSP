@@ -1,46 +1,41 @@
 import { test } from '@playwright/test';
+import { chromium } from 'playwright';
 
 /**
- * ProtonMail login → pause so you can browse your mail.
+ * ProtonMail debug — browser + Playwright Inspector visible.
+ * Loads creds from encrypted .env.enc via config/index.ts.
  *
- * Run: npx playwright test tests/login-and-pause.spec.ts
- * Env:  PROTON_EMAIL and PROTON_PASSWORD must be set
- *       (or PROTON_WHITETURTLE_MASTER_KEY with config/index.ts loaded)
+ * Command:
+ *   npx playwright test tests/login-and-pause.spec.ts --debug
  *
- * Headed mode: edit playwright.config.ts or pass --headed
+ * Opens headed browser + Inspector. Steps through login,
+ * then hits page.pause() — you browse your mail.
  */
 
-test('login to ProtonMail and hand off browser', async ({ page }) => {
-  const username = process.env.PROTON_EMAIL || process.env.PROTON_USERNAME;
-  const password = process.env.PROTON_PASSWORD;
+test('login to ProtonMail with debugger', async () => {
+  const { config } = await import('../src/config/index.js');
+  const username = config.auth.protonUsername;
+  const password = config.auth.protonPassword;
 
-  if (!username || !password) {
-    console.error('❌ Set PROTON_EMAIL and PROTON_PASSWORD env vars.');
-    test.fixme();
-    return;
-  }
+  test.fixme(!username || !password, 'Set PROTON_WHITETURTLE_MASTER_KEY at OS level.');
 
-  console.log('🌐 Opening ProtonMail...');
+  const browser = await chromium.launch({ headless: false });
+  const page = await browser.newPage();
+
   await page.goto('https://mail.proton.me', { waitUntil: 'load' });
   await page.waitForTimeout(4_000);
 
-  console.log('⏳ Waiting for login form...');
   await page.waitForSelector('#username', { state: 'visible', timeout: 20_000 });
-  console.log('✅ Login form ready');
 
-  console.log('👤 Entering credentials...');
   await page.fill('#username', username);
   await page.fill('#password', password);
   await page.click('button[type="submit"]');
 
-  console.log('⏳ Waiting for login to complete...');
   await page.waitForTimeout(5_000);
 
-  // Retry submit if still on login page
   for (let i = 0; i < 3; i++) {
     const onLoginPage = await page.locator('#username').isVisible();
     if (onLoginPage) {
-      console.log(`🔄 Retry submit (attempt ${i + 1})...`);
       await page.click('button[type="submit"]');
       await page.waitForTimeout(3_000);
     } else {
@@ -48,9 +43,6 @@ test('login to ProtonMail and hand off browser', async ({ page }) => {
     }
   }
 
-  console.log('✅ Logged in. Browser is yours — browse your mail.');
-  console.log('   Close the browser window or press Ctrl+C to exit.');
-
-  // Hand off — you're in control
   await page.pause();
+  await browser.close();
 });
