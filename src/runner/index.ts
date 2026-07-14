@@ -16,6 +16,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
+// ---- Config ----
+const HEADLESS = process.env['MOLTY_HEADLESS'] !== 'false';
+
 // ---- Types ----
 interface Scenario {
   name: string;
@@ -103,7 +106,10 @@ class BddRunner {
     }
 
     // Single browser instance, fresh page per scenario
-    this.browser = await chromium.launch({ headless: true });
+    this.browser = await chromium.launch({
+      headless: HEADLESS,
+      args: HEADLESS ? [] : ['--start-maximized'],
+    });
     this.browserContext = await this.browser.newContext();
 
     // Run scenarios
