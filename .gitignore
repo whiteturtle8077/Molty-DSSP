@@ -14,3 +14,4 @@ session-log/
 challenges/
 cache/
 secrets.enc
+*.env

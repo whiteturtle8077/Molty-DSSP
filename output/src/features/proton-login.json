@@ -1,0 +1,35 @@
+{
+  "feature": "ProtonMail Login",
+  "description": "As a user, I want to log into ProtonMail so that I can access my email",
+  "tags": ["smoke", "login"],
+  "scenarios": [
+    {
+      "id": "LOGIN-01",
+      "name": "Login page loads with branding",
+      "tags": ["smoke"],
+      "given": "I navigate to the ProtonMail login page",
+      "when": "the page finishes loading",
+      "then": "the page title should contain 'Proton'"
+    },
+    {
+      "id": "LOGIN-02",
+      "name": "Login form displays all required fields",
+      "tags": ["smoke"],
+      "given": "I am on the ProtonMail login page",
+      "when": "the login form is rendered",
+      "then": [
+        "a username input field should be visible",
+        "a password input field should be visible",
+        "a sign-in button should be visible"
+      ]
+    },
+    {
+      "id": "LOGIN-03",
+      "name": "Successful login with valid credentials",
+      "tags": ["smoke", "auth"],
+      "given": "I am on the ProtonMail login page",
+      "when": "I enter valid credentials and sign in",
+      "then": "I should be redirected to my inbox"
+    }
+  ]
+}
