@@ -1,0 +1,15 @@
+# Ignore root-level stale copies — everything lives under output/
+.env.enc
+node_modules/
+dist/
+*.log
+playwright-report/
+test-results/
+scripts/
+src/
+tests/
+*.json
+DEEPSEEK.md
+README.md
+playwright.config.ts
+tsconfig.json
