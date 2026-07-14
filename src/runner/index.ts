@@ -35,7 +35,7 @@ type StepRegistry = Record<string, (page: Page, context: Record<string, unknown>
 // ---- Runner ----
 class BddRunner {
   private browser!: Browser;
-  private page!: Page;
+  private browserContext!: import('playwright').BrowserContext;
   private steps: StepRegistry = {};
   private passed = 0;
   private failed = 0;
@@ -46,17 +46,24 @@ class BddRunner {
     this.steps[key] = handler;
   }
 
+  registerSteps(stepMap: StepRegistry): void {
+    Object.assign(this.steps, stepMap);
+  }
+
   private async runScenario(scenario: Scenario): Promise<void> {
     process.stdout.write(`\n  📋 Scenario: ${scenario.name}\n`);
     const context: Record<string, unknown> = {};
     this.total++;
+
+    // Fresh page per scenario — resilient, simulates clean user session
+    const page = await this.browserContext.newPage();
 
     try {
       // Execute Given
       const givenKey = `given:${scenario.given}`;
       if (this.steps[givenKey]) {
         process.stdout.write(`    ✓ Given ${scenario.given}\n`);
-        await this.steps[givenKey](this.page, context);
+        await this.steps[givenKey](page, context);
       }
 
       // Execute When
@@ -64,7 +71,7 @@ class BddRunner {
         const whenKey = `when:${scenario.when}`;
         if (this.steps[whenKey]) {
           process.stdout.write(`    ✓ When ${scenario.when}\n`);
-          await this.steps[whenKey](this.page, context);
+          await this.steps[whenKey](page, context);
         }
       }
 
@@ -74,7 +81,7 @@ class BddRunner {
         const thenKey = `then:${assertion}`;
         if (this.steps[thenKey]) {
           process.stdout.write(`    ✓ Then ${assertion}\n`);
-          await this.steps[thenKey](this.page, context);
+          await this.steps[thenKey](page, context);
         }
       }
 
@@ -82,6 +89,8 @@ class BddRunner {
     } catch (error) {
       this.failed++;
       process.stdout.write(`    ❌ ${(error as Error).message}\n`);
+    } finally {
+      await page.close();
     }
   }
 
@@ -93,10 +102,9 @@ class BddRunner {
       process.stdout.write(`   ${feature.description}\n`);
     }
 
-    // Launch browser
+    // Single browser instance, fresh page per scenario
     this.browser = await chromium.launch({ headless: true });
-    const context = await this.browser.newContext();
-    this.page = await context.newPage();
+    this.browserContext = await this.browser.newContext();
 
     // Run scenarios
     for (const scenario of feature.scenarios) {
@@ -114,10 +122,6 @@ class BddRunner {
     if (this.failed > 0) {
       process.exit(1);
     }
-  }
-
-  registerSteps(stepMap: StepRegistry): void {
-    Object.assign(this.steps, stepMap);
   }
 }
 

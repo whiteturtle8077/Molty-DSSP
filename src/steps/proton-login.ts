@@ -74,19 +74,6 @@ const protonLoginSteps: StepRegistry = {
     context['loginSuccess'] = await loginPage.isLoggedIn();
   },
 
-  'when:I enter an incorrect password and sign in': async (page: Page, context: Record<string, unknown>) => {
-    const loginPage = new ProtonLoginPage(page);
-    const username = config.auth.protonUsername;
-
-    await loginPage.handleBlockingCaptchas();
-    await loginPage.enterUsername(username);
-    await loginPage.enterPassword('wrong-password-' + Date.now());
-    await loginPage.clickSignIn();
-
-    await page.waitForTimeout(3_000);
-    context['loginSuccess'] = false;
-  },
-
   // ---- Then steps ----
 
   'then:the page title should contain \'Proton\'': async (page: Page) => {
@@ -124,18 +111,7 @@ const protonLoginSteps: StepRegistry = {
     }
   },
 
-  'then:an error message should be displayed': async (page: Page) => {
-    await page.waitForTimeout(3_000);
-    const loginPage = new ProtonLoginPage(page);
-    const errorMsg = await loginPage.getErrorMessage();
-
-    if (!errorMsg) {
-      const text = await page.evaluate(() => document.body.innerText);
-      console.log(`  📄 Page text: ${text.substring(0, 300)}`);
-      throw new Error('Expected error message but none found');
-    }
-    console.log(`  ✅ Error message: "${errorMsg}"`);
-  },
 };
+
 
 export default protonLoginSteps;

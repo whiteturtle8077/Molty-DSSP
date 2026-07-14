@@ -13,3 +13,4 @@ STATE.json
 session-log/
 challenges/
 cache/
+secrets.enc

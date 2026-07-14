@@ -1,16 +1,26 @@
 # DEEPSEEK.md — Molty-DSSP Workflow Protocol
 
-This file is the active loop controller for any DeepSeek agent (or model-agnostic agent) working on this project. If you are reading this at session start, **follow it exactly** before doing anything else.
+This file is the active loop controller for any agent working on this project. If you are reading this at session start, **follow it exactly** before doing anything else.
 
 ## Objective
 
-Build a TypeScript + Playwright JSON BDD framework: modular page objects, typed JSON contracts, config-driven, reporting-first, CI-ready. Demonstrates SDET-level architecture.
+Build a lean, reusable TypeScript + Playwright automation library using JSON BDD. Tests are structured JSON feature files, executed by a custom lightweight runner. The goal is maximum objective-achievement with minimum effort: clean modular page objects, config-driven, resilient.
+
+## Design Directive (TRIM) — Read This First
+
+**Build only what serves the objective.** This is not a comprehensive test suite. No negative testing, no error message validation, no edge case coverage for its own sake. Every scenario must directly serve a real automation goal.
+
+**What belongs:** login flows (smoke + successful auth), captcha handling, modular page objects, CI-ready reporting, multi-target config.
+
+**What does not belong:** invalid password tests, error state coverage, edge cases that don't serve a concrete target.
+
+See `metalayer/ROADMAP.md` for full directive and `metalayer/GLOSSARY.json` entry "TRIM DIRECTIVE" (2026-07-14).
 
 ## Session Startup — Read Order (Mandatory)
 
 1. **`DEEPSEEK.md`** (this file) — boot instructions
 2. **`metalayer/STATE.json`** — resume point (phase, step, next_action)
-3. **`metalayer/ROADMAP.md`** — project scope and milestones
+3. **`metalayer/ROADMAP.md`** — project scope, milestones, TRIM DIRECTIVE
 4. **`metalayer/GLOSSARY.json`** — durable term/discovery memory
 5. **`metalayer/FROZEN_CACHE.context`** — infrastructure snapshot
 6. **`metalayer/session-log/`** — last entry (most recent session turn)
@@ -91,5 +101,5 @@ Phase <N>, Step <current step> is: <exact next action>
 ## Phase Map
 
 - **Phase 1 (Complete):** Project scaffold + hello world + structure finalization
-- **Phase 2 (Next):** Config layer, selector externalization, reporting output, error state scenarios, data-driven tables
-- **Phase 3 (Future):** Multi-browser, CI pipeline, parallel execution, full test suite for multiple targets
+- **Phase 2 (In Progress):** Config layer ✅, selector externalization ✅, 2Captcha ✅, login E2E ✅, reporting (todo), multi-target config (todo), convergence (todo)
+- **Phase 3 (Future):** CI pipeline, parallel execution, targets beyond ProtonMail

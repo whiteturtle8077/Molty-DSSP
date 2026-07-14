@@ -30,14 +30,6 @@
       "given": "I am on the ProtonMail login page",
       "when": "I enter valid credentials and sign in",
       "then": "I should be redirected to my inbox"
-    },
-    {
-      "id": "LOGIN-04",
-      "name": "Login with invalid password shows error",
-      "tags": ["negative", "auth"],
-      "given": "I am on the ProtonMail login page",
-      "when": "I enter an incorrect password and sign in",
-      "then": "an error message should be displayed"
     }
   ]
 }

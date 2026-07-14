@@ -77,8 +77,27 @@ interface SecretsPayload {
   password: string;
 }
 
+// ---- Master key sources (priority order) ----
+function resolveMasterKey(): string {
+  // 1. Runtime env var (inline MOLTY_MASTER_KEY=xxx, highest priority)
+  const envKey = process.env['MOLTY_MASTER_KEY'];
+  if (envKey) return envKey;
+
+  // 2. OS env var PROTON_WHITETURTLE_MASTER_KEY (set in bashrc / system env)
+  const osKey = process.env['PROTON_WHITETURTLE_MASTER_KEY'];
+  if (osKey) return osKey;
+
+  // 3. File-based key — outside project tree, never git-tracked
+  const keyFile = '/home/melataka/.secrets/proton-master-key';
+  try {
+    return fs.readFileSync(keyFile, 'utf-8').trim();
+  } catch {
+    return '';
+  }
+}
+
 function decryptSecrets(): SecretsPayload {
-  const masterKeyHex = process.env['MOLTY_MASTER_KEY'] || '';
+  const masterKeyHex = resolveMasterKey();
   if (!masterKeyHex) {
     return { username: '', password: '' };
   }
