@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npx playwright test",
     "test:hello": "npx playwright test tests/hello-world.spec.ts",
+    "test:login": "npx playwright test tests/proton-login.spec.ts",
     "test:bdd": "node --loader ts-node/esm src/runner/index.ts"
   },
   "devDependencies": {
